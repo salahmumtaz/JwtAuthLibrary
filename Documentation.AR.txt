@@ -1,0 +1,227 @@
+﻿توثيق مكتبة JwtAuthLibrary
+JwtAuthLibrary هي مكتبة .NET Standard مصممة لتوفير وظائف أساسية وقابلة لإعادة الاستخدام للتعامل مع JSON Web Tokens (JWT) في تطبيقاتك. تهدف هذه المكتبة إلى تبسيط عملية إنشاء الـ Access Tokens والـ Refresh Tokens، بالإضافة إلى توفير الأدوات اللازمة للتحقق من الـ Tokens واستخراج المعلومات منها.
+
+الميزات الرئيسية
+إنشاء Access Tokens: توليد Access Tokens موقعة بناءً على مطالبات (Claims) المستخدم وإعدادات JWT.
+
+إنشاء Refresh Tokens: توليد Refresh Tokens عشوائية قوية التشفير.
+
+استخراج المطالبات: القدرة على استخراج المطالبات من Access Token منتهي الصلاحية (ولكن بتوقيع صالح) لتسهيل عملية تحديث الـ Token.
+
+تكوين سهل: توفير طريقة توسيع (Extension Method) لتبسيط عملية إعداد خدمات JWT في نظام حقن التبعية (Dependency Injection) في ASP.NET Core.
+
+فصل الاهتمامات: فصل منطق إنشاء الـ Token عن منطق عمل تطبيقك الأساسي وقاعدة البيانات.
+
+التثبيت
+لإضافة المكتبة إلى مشروعك، يمكنك استخدام NuGet Package Manager.
+
+عبر NuGet Package Manager Console:
+
+Install-Package JwtAuthLibrary
+
+عبر .NET CLI:
+
+dotnet add package JwtAuthLibrary
+
+التكوين (Configuration)
+تعتمد المكتبة على إعدادات JWT الموجودة في ملف التكوين الخاص بمشروعك (عادةً appsettings.json). يجب أن يحتوي ملف appsettings.json على قسم Jwt بالصيغة التالية:
+
+{
+  "Jwt": {
+    "Key": "YOUR_SUPER_SECRET_KEY_AT_LEAST_32_CHARS_LONG",
+    "Issuer": "https://yourdomain.com",
+    "Audience": "https://yourdomain.com",
+    "AccessTokenExpiryMinutes": 15, // اختياري: مدة صلاحية Access Token بالدقائق (الافتراضي: 15)
+    "RefreshTokenExpiryDays": 7    // اختياري: مدة صلاحية Refresh Token بالأيام (الافتراضي: 7)
+  }
+}
+
+ملاحظات هامة حول التكوين:
+
+Key: هذا هو المفتاح السري الذي يستخدم لتوقيع الـ JWTs. يجب أن يكون قويًا جدًا وعشوائيًا (على الأقل 32 بايت / 256 بت) ولا يجب مشاركته علنًا. في بيئات الإنتاج، يجب تخزينه بشكل آمن (مثل Azure Key Vault أو متغيرات البيئة) وليس مباشرة في appsettings.json.
+
+Issuer: الجهة التي أصدرت الـ Token (عادةً عنوان URL لتطبيقك).
+
+Audience: الجهة التي يستهدفها الـ Token (عادةً عنوان URL لتطبيقك).
+
+AccessTokenExpiryMinutes: المدة التي يظل فيها Access Token صالحًا. يفضل أن تكون قصيرة (مثال: 5-15 دقيقة) لتقليل مخاطر سرقة الـ Token.
+
+RefreshTokenExpiryDays: المدة التي يظل فيها Refresh Token صالحًا. يمكن أن تكون أطول (مثال: 7 أيام أو أكثر) للسماح للمستخدمين بالبقاء مسجلين لفترة أطول دون إعادة تسجيل الدخول.
+
+كيفية الاستخدام
+1. تسجيل الخدمات في Program.cs (لمشاريع ASP.NET Core)
+تأتي المكتبة مع طريقة توسيع AddJwtAuthLibrary لتبسيط عملية تسجيل خدمات JWT في نظام حقن التبعية الخاص بـ ASP.NET Core.
+
+// Program.cs
+using JwtAuthLibrary.Extensions; // تأكد من إضافة هذا الـ using
+
+var builder = WebApplication.CreateBuilder(args);
+
+// ... خدمات أخرى (مثل DbContext)
+
+// تسجيل خدمات JWT من المكتبة
+builder.Services.AddJwtAuthLibrary(builder.Configuration);
+
+// ... خدمات الـ Controller أو Minimal APIs
+
+var app = builder.Build();
+
+// ... تكوين الـ pipeline (UseAuthentication, UseAuthorization)
+app.UseAuthentication();
+app.UseAuthorization();
+// ...
+
+app.Run();
+
+ملاحظة: يجب أن تكون app.UseAuthentication(); قبل app.UseAuthorization(); في الـ HTTP request pipeline.
+
+2. استخدام IJwtAuthService
+يمكنك حقن IJwtAuthService في أي خدمة أو Controller يحتاج إلى إنشاء أو التحقق من الـ Tokens.
+
+مثال على حقن IJwtAuthService في خدمة:
+// UserService.cs (أو أي خدمة أخرى)
+using JwtAuthLibrary.Services; // تأكد من إضافة هذا الـ using
+using System.Security.Claims; // لـ ClaimTypes
+
+public class UserService
+{
+    private readonly IJwtAuthService _jwtAuthService;
+
+    public UserService(IJwtAuthService jwtAuthService)
+    {
+        _jwtAuthService = jwtAuthService;
+    }
+
+    // ...
+
+    public async Task<TokenResponseDto?> LoginAsync(string email, string password)
+    {
+        // ... (التحقق من المستخدم وكلمة المرور)
+
+        // مثال: إنشاء المطالبات (Claims)
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, user.ID.ToString()),
+            new Claim(ClaimTypes.Email, user.Email),
+            new Claim(ClaimTypes.Name, user.Username),
+            new Claim(ClaimTypes.Role, user.Role.ToString())
+        };
+
+        // استخدام IJwtAuthService لإنشاء Access Token
+        var accessToken = _jwtAuthService.CreateAccessToken(claims);
+
+        // استخدام IJwtAuthService لإنشاء Refresh Token
+        var refreshToken = _jwtAuthService.GenerateRefreshToken();
+
+        // **مهم:** يجب حفظ Refresh Token في قاعدة البيانات مع تاريخ انتهاء الصلاحية
+        // (هذا الجزء لا يزال مسؤولية تطبيقك، وليس المكتبة)
+        // await SaveRefreshTokenToDatabase(user.ID, refreshToken, DateTime.UtcNow.AddDays(7));
+
+        return new TokenResponseDto
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken
+        };
+    }
+
+    public async Task<TokenResponseDto?> RefreshTokensAsync(RefreshTokenRequestDto request)
+    {
+        // **مهم:** يجب التحقق من Refresh Token في قاعدة البيانات هنا
+        // (هذا الجزء لا يزال مسؤولية تطبيقك)
+        // var user = await GetUserByRefreshTokenFromDatabase(request.UserId, request.RefreshToken);
+        // if (user == null) return null;
+
+        // استخراج المطالبات من الـ Access Token القديم (إذا كنت تريد إعادة استخدامها)
+        // ClaimsPrincipal? principal = _jwtAuthService.GetPrincipalFromExpiredToken(request.AccessToken);
+        // var userIdFromToken = principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        // if (userIdFromToken == null || !Guid.TryParse(userIdFromToken, out Guid parsedUserId) || parsedUserId != request.UserId)
+        // {
+        //     return null; // Token غير صالح أو لا يتطابق مع المستخدم
+        // }
+
+        // مثال: إعادة إنشاء المطالبات (أو استخدام المطالبات المستخرجة)
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, user.ID.ToString()),
+            new Claim(ClaimTypes.Email, user.Email),
+            new Claim(ClaimTypes.Name, user.Username),
+            new Claim(ClaimTypes.Role, user.Role.ToString())
+        };
+
+        // إنشاء Access Token جديد
+        var newAccessToken = _jwtAuthService.CreateAccessToken(claims);
+
+        // إنشاء Refresh Token جديد
+        var newRefreshToken = _jwtAuthService.GenerateRefreshToken();
+
+        // **مهم:** يجب تحديث Refresh Token الجديد في قاعدة البيانات
+        // await SaveRefreshTokenToDatabase(user.ID, newRefreshToken, DateTime.UtcNow.AddDays(7));
+
+        return new TokenResponseDto
+        {
+            AccessToken = newAccessToken,
+            RefreshToken = newRefreshToken
+        };
+    }
+}
+
+3. DTOs المستخدمة
+TokenResponseDto: يستخدم لإرجاع الـ Access Token والـ Refresh Token إلى العميل بعد تسجيل الدخول أو تحديث الـ Token.
+
+namespace JwtAuthLibrary.Models.DTOs
+{
+    public class TokenResponseDto
+    {
+        public required string AccessToken { get; set; }
+        public required string RefreshToken { get; set; }
+    }
+}
+
+RefreshTokenRequestDto: يستخدم لاستقبال طلب تحديث الـ Token من العميل.
+
+using System;
+using System.ComponentModel.DataAnnotations;
+
+namespace JwtAuthLibrary.Models.DTOs
+{
+    public class RefreshTokenRequestDto
+    {
+        [Required]
+        public Guid UserId { get; set; }
+        [Required]
+        public required string RefreshToken { get; set; }
+    }
+}
+
+المفاهيم الأساسية
+JWT (JSON Web Token): طريقة آمنة لتمثيل المطالبات (Claims) بين طرفين. يتكون من ثلاثة أجزاء مفصولة بنقاط: Header, Payload, Signature.
+
+Access Token: الـ Token الفعلي الذي يتم إرساله مع كل طلب API موثق. له صلاحية قصيرة (عادةً دقائق).
+
+Refresh Token: Token طويل الأجل يستخدم للحصول على Access Token جديد عندما ينتهي صلاحية Access Token الحالي، دون الحاجة إلى إعادة تسجيل دخول المستخدم.
+
+Claims (المطالبات): معلومات حول الكيان (عادةً المستخدم) الذي تم إصدار الـ Token له، مثل معرف المستخدم، البريد الإلكتروني، الأدوار، وما إلى ذلك.
+
+اعتبارات أمنية هامة
+مفتاح JWT السري (Jwt:Key):
+
+لا تقم أبدًا بتخزينه مباشرة في appsettings.json في بيئات الإنتاج. استخدم متغيرات البيئة، Azure Key Vault، AWS Secrets Manager، أو أي حل آمن لإدارة الأسرار.
+
+يجب أن يكون قويًا وعشوائيًا تمامًا. استخدم مولد مفاتيح تشفير (مثل الذي قدمته سابقًا).
+
+تجزئة كلمات المرور (Password Hashing):
+
+هذه المكتبة لا تتعامل مع تجزئة كلمات المرور. يجب عليك دائمًا تجزئة (Hash) كلمات المرور قبل تخزينها في قاعدة البيانات (مثل باستخدام BCrypt أو Argon2) والتحقق من التجزئة عند تسجيل الدخول.
+
+إدارة Refresh Tokens:
+
+المكتبة لا تقوم بتخزين أو إدارة Refresh Tokens في قاعدة البيانات. هذه مسؤولية تطبيقك.
+
+يجب تخزين Refresh Tokens في قاعدة بيانات آمنة وربطها بالمستخدم.
+
+يجب إبطال (Revoke) Refresh Tokens عند تسجيل خروج المستخدم، أو عند اكتشاف نشاط مشبوه، أو عند انتهاء صلاحيتها.
+
+HTTPS: تأكد دائمًا من أن تطبيقك يستخدم HTTPS لحماية الـ Tokens أثناء النقل.
+
+التعامل مع الأخطاء: يجب أن يتعامل تطبيقك مع السيناريوهات التي يكون فيها الـ Token غير صالح أو منتهي الصلاحية بشكل صحيح.
+

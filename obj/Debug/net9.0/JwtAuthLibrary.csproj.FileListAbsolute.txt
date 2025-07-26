@@ -1,0 +1,5 @@
+E:\focus\Programming\5- Projects\JwtAuthLibrary\obj\Debug\net9.0\JwtAuthLibrary.csproj.AssemblyReference.cache
+E:\focus\Programming\5- Projects\JwtAuthLibrary\obj\Debug\net9.0\JwtAuthLibrary.GeneratedMSBuildEditorConfig.editorconfig
+E:\focus\Programming\5- Projects\JwtAuthLibrary\obj\Debug\net9.0\JwtAuthLibrary.AssemblyInfoInputs.cache
+E:\focus\Programming\5- Projects\JwtAuthLibrary\obj\Debug\net9.0\JwtAuthLibrary.AssemblyInfo.cs
+E:\focus\Programming\5- Projects\JwtAuthLibrary\obj\Debug\net9.0\JwtAuthLibrary.csproj.CoreCompileInputs.cache
